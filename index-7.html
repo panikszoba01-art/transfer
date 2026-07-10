@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1F3864">
+<title>Transfer Form</title>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Transfer%20Form%22%2C%22short_name%22%3A%22Transfer%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%231F3864%22%2C%22theme_color%22%3A%22%231F3864%22%7D">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --navy:#1F3864;--navy-2:#2b4a80;--line:#c9d2e3;--bg:#eef1f6;--card:#fff;
+    --ink:#16203a;--muted:#66738f;--danger:#c0392b;--ok:#1e7d46;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);padding-bottom:120px;}
+  header{background:var(--navy);color:#fff;padding:14px 16px calc(14px + env(safe-area-inset-top,0)) 16px;
+    position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  header h1{margin:0;font-size:20px;letter-spacing:.14em;font-weight:800;text-align:center;}
+  .sub{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;}
+  .sub label{font-size:12px;color:#c7d2ea;}
+  .sub input{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);
+    color:#fff;border-radius:8px;padding:8px;font-size:14px;}
+  .count{font-size:12px;color:#c7d2ea;text-align:center;margin-top:6px;}
+  main{padding:12px 12px 0;}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(20,32,58,.06);}
+  .row-head{display:flex;align-items:center;justify-content:space-between;
+    background:var(--navy);color:#fff;padding:8px 12px;}
+  .row-no{font-weight:800;font-size:15px;letter-spacing:.05em;}
+  .del{background:rgba(255,255,255,.14);color:#fff;border:none;width:34px;height:34px;
+    border-radius:8px;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;}
+  .del:active{background:var(--danger);}
+  .fields{padding:10px 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{display:flex;flex-direction:column;}
+  .field.full{grid-column:1 / -1;}
+  .field label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--muted);font-weight:700;margin-bottom:4px;}
+  .field input{border:1.5px solid var(--line);border-radius:10px;padding:12px;
+    font-size:17px;color:var(--ink);background:#fbfcfe;width:100%;}
+  .field input:focus{outline:none;border-color:var(--navy-2);background:#fff;
+    box-shadow:0 0 0 3px rgba(43,74,128,.14);}
+  .field.qty input{text-align:center;font-weight:700;}
+  .addbar{padding:2px 12px 20px;}
+  .add{width:100%;background:#fff;color:var(--navy);border:2px dashed var(--navy-2);
+    border-radius:14px;padding:16px;font-size:16px;font-weight:800;letter-spacing:.03em;}
+  .add:active{background:#eaf0fb;}
+  .footer{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;
+    border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0));
+    box-shadow:0 -2px 10px rgba(20,32,58,.08);}
+  .send-btn{width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;
+    padding:16px;font-size:17px;font-weight:800;letter-spacing:.02em;margin-bottom:8px;
+    display:flex;align-items:center;justify-content:center;gap:8px;}
+  .send-btn:active{transform:translateY(1px);}
+  .row-btns{display:grid;grid-template-columns:1fr auto;gap:8px;}
+  .btn{border:none;border-radius:12px;padding:14px 10px;font-size:15px;font-weight:800;
+    letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn.excel{background:var(--ok);color:#fff;}
+  .btn.clear{background:#f0f2f7;color:var(--danger);padding:14px 18px;}
+  .btn:active{transform:translateY(1px);}
+  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;
+    font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:40;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<header>
+  <h1>TRANSFER FORM</h1>
+  <div class="sub">
+    <label for="meta-date">Date</label>
+    <input id="meta-date" type="date" aria-label="Date">
+  </div>
+  <div class="count" id="count">0 rows</div>
+</header>
+
+<main>
+  <div id="rows"></div>
+  <div class="addbar"><button class="add" id="addBtn">+ Add row</button></div>
+</main>
+
+<div class="footer">
+  <button class="send-btn" id="sendBtn">&#128228;&nbsp; Send Excel</button>
+  <div class="row-btns">
+    <button class="btn excel" id="downloadBtn">Download only</button>
+    <button class="btn clear" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY="transferFormData_v1", META_KEY="transferFormMeta_v1";
+let rows=[];
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function blank(){return {id:uid(),from:"",to:"",item:"",qty:""};}
+
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(STORE_KEY));if(Array.isArray(d)&&d.length)rows=d;}catch(e){}
+  try{const m=JSON.parse(localStorage.getItem(META_KEY))||{};if(m.date)document.getElementById('meta-date').value=m.date;}catch(e){}
+  if(!rows.length)rows=[blank()];
+}
+function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(rows));}catch(e){}saveMeta();}
+function saveMeta(){try{localStorage.setItem(META_KEY,JSON.stringify({date:document.getElementById('meta-date').value}));}catch(e){}}
+
+function esc(s){return String(s||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function render(){
+  const wrap=document.getElementById('rows');wrap.innerHTML="";
+  rows.forEach(function(r,i){
+    const el=document.createElement('div');el.className="row";
+    el.innerHTML=
+      '<div class="row-head"><span class="row-no">#'+(i+1)+'</span>'+
+        '<button class="del" data-del="'+r.id+'" aria-label="Delete row">&times;</button></div>'+
+      '<div class="fields">'+
+        '<div class="field"><label>Location From</label>'+
+          '<input data-id="'+r.id+'" data-k="from" value="'+esc(r.from)+'" autocomplete="off" autocapitalize="characters" placeholder="FG00"></div>'+
+        '<div class="field"><label>Location To</label>'+
+          '<input data-id="'+r.id+'" data-k="to" value="'+esc(r.to)+'" autocomplete="off" autocapitalize="characters" placeholder="SWGB05"></div>'+
+        '<div class="field full"><label>Item Number</label>'+
+          '<input data-id="'+r.id+'" data-k="item" value="'+esc(r.item)+'" autocomplete="off" autocapitalize="characters" placeholder="505214714"></div>'+
+        '<div class="field qty full"><label>Quantity</label>'+
+          '<input data-id="'+r.id+'" data-k="qty" value="'+esc(r.qty)+'" inputmode="numeric" pattern="[0-9]*" placeholder="0"></div>'+
+      '</div>';
+    wrap.appendChild(el);
+  });
+  document.getElementById('count').textContent=rows.length+(rows.length===1?" row":" rows");
+}
+
+document.getElementById('rows').addEventListener('input',function(e){
+  const id=e.target.getAttribute('data-id'),k=e.target.getAttribute('data-k');
+  if(!id||!k)return;const r=rows.find(function(x){return x.id===id;});if(r){r[k]=e.target.value;save();}
+});
+document.getElementById('rows').addEventListener('click',function(e){
+  const del=e.target.getAttribute('data-del');if(!del)return;
+  rows=rows.filter(function(x){return x.id!==del;});if(!rows.length)rows=[blank()];save();render();
+});
+document.getElementById('addBtn').addEventListener('click',function(){
+  rows.push(blank());save();render();window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+});
+document.getElementById('clearBtn').addEventListener('click',function(){
+  if(confirm("Clear all rows?")){rows=[blank()];save();render();toast("Cleared");}
+});
+document.getElementById('meta-date').addEventListener('change',saveMeta);
+
+function filled(){return rows.filter(function(r){return r.from||r.to||r.item||r.qty;});}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},1800);}
+
+/* ---------- Build Excel (returns Blob) ---------- */
+async function buildXlsxBlob(){
+  const data=filled();
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Transfer Form',{views:[{showGridLines:false}]});
+  ws.columns=[{width:6},{width:20},{width:20},{width:22},{width:14}];
+  const NAVY="FF1F3864",WHITE="FFFFFFFF";
+  const border={top:{style:'thin',color:{argb:'FFB7B7B7'}},left:{style:'thin',color:{argb:'FFB7B7B7'}},bottom:{style:'thin',color:{argb:'FFB7B7B7'}},right:{style:'thin',color:{argb:'FFB7B7B7'}}};
+  ws.mergeCells('A1:E2');const t=ws.getCell('A1');t.value="TRANSFER FORM";
+  t.font={name:'Arial',size:18,bold:true,color:{argb:WHITE}};t.alignment={horizontal:'center',vertical:'middle'};
+  for(let r=1;r<=2;r++)for(let c=1;c<=5;c++){const cell=ws.getCell(r,c);
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:NAVY}};cell.border=border;}
+  ws.getRow(1).height=22;ws.getRow(2).height=22;
+  const dv=document.getElementById('meta-date').value;
+  let hRow=3;
+  if(dv){ws.getCell('A3').value="Date: "+dv;
+    ws.getCell('A3').font={name:'Arial',size:10,italic:true,color:{argb:'FF66738F'}};ws.mergeCells('A3:E3');hRow=4;}
+  const headers=["No.","Location From","Location To","Item Number","Quantity"];
+  const hr=ws.getRow(hRow);
+  headers.forEach(function(h,i){const cell=hr.getCell(i+1);cell.value=h;
+    cell.font={name:'Arial',size:11,bold:true,color:{argb:WHITE}};
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:NAVY}};
+    cell.alignment={horizontal:'center',vertical:'middle'};cell.border=border;});
+  hr.height=22;
+  data.forEach(function(r,i){const row=ws.getRow(hRow+1+i);
+    [i+1,r.from,r.to,r.item,r.qty].forEach(function(v,c){const cell=row.getCell(c+1);
+      cell.value=(c===4&&v!==""&&!isNaN(v))?Number(v):v;
+      cell.font={name:'Arial',size:11,color:{argb:'FF000000'}};
+      cell.alignment={horizontal:(c===0||c===4)?'center':'left',vertical:'middle'};cell.border=border;});
+    row.height=20;});
+  ws.pageSetup={orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}};
+  const buf=await wb.xlsx.writeBuffer();
+  return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function xlsxName(){const dv=document.getElementById('meta-date').value||new Date().toISOString().slice(0,10);return 'TransferForm_'+dv+'.xlsx';}
+function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);}
+
+/* ---------- Send Excel via share sheet (OneDrive / email / etc.) ---------- */
+document.getElementById('sendBtn').addEventListener('click',async function(){
+  const data=filled();
+  if(!data.length){toast("Fill in a row first");return;}
+  if(!window.ExcelJS){toast("Loading… try again");return;}
+  let blob;
+  try{ blob=await buildXlsxBlob(); }catch(e){ toast("Excel error"); return; }
+  const file=new File([blob],xlsxName(),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:'Transfer Form'}); }
+    catch(e){ /* cancelled */ }
+  }else{
+    downloadBlob(blob,xlsxName());
+    toast("Saved to Files");
+  }
+});
+
+/* ---------- Download only ---------- */
+document.getElementById('downloadBtn').addEventListener('click',async function(){
+  const data=filled();if(!data.length){toast("Fill in a row first");return;}
+  if(!window.ExcelJS){toast("Loading… try again");return;}
+  try{ const blob=await buildXlsxBlob(); downloadBlob(blob,xlsxName()); toast("Excel downloaded"); }
+  catch(e){ toast("Excel error"); }
+});
+
+window.addEventListener('DOMContentLoaded',function(){
+  load();
+  if(!document.getElementById('meta-date').value)document.getElementById('meta-date').value=new Date().toISOString().slice(0,10);
+  render();
+});
+</script>
+</body>
+</html>
