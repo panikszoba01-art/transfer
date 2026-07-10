@@ -7,6 +7,7 @@
 <title>Transfer Form</title>
 <link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Transfer%20Form%22%2C%22short_name%22%3A%22Transfer%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%231F3864%22%2C%22theme_color%22%3A%22%231F3864%22%7D">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root{
     --navy:#1F3864;--navy-2:#2b4a80;--line:#c9d2e3;--bg:#eef1f6;--card:#fff;
@@ -66,6 +67,29 @@
     box-shadow:0 6px 20px rgba(0,0,0,.25);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+  /* scan button inside text fields */
+  .inrow{display:flex;gap:6px;}
+  .inrow input{flex:1;}
+  .scanbtn{flex:0 0 auto;width:46px;border:1.5px solid var(--navy-2);
+    background:var(--navy);color:#fff;border-radius:10px;font-size:20px;
+    display:flex;align-items:center;justify-content:center;}
+  .scanbtn:active{background:var(--navy-2);}
+
+  /* camera scanner overlay */
+  .scanov{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column;}
+  .scanov.open{display:flex;}
+  .scanov-top{position:relative;z-index:2;color:#fff;
+    padding:calc(12px + env(safe-area-inset-top,0)) 16px 12px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(#000c,transparent);}
+  .scanov-top .t{font-size:15px;font-weight:700;}
+  .scanov-close{background:rgba(255,255,255,.18);color:#fff;border:none;
+    width:40px;height:40px;border-radius:20px;font-size:22px;line-height:1;}
+  #reader{flex:1;width:100%;}
+  #reader video{width:100%!important;height:100%!important;object-fit:cover;}
+  .scanov-hint{position:absolute;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom,0));
+    z-index:2;text-align:center;color:#fff;font-size:14px;padding:0 24px;}
+
   /* Compact layout for small PDA / phone screens */
   @media (max-width: 460px){
     body{padding-bottom:150px;}
@@ -89,6 +113,7 @@
     .row-btns{gap:6px;}
     .btn{padding:10px 8px;font-size:13px;}
     .btn.clear{padding:10px 14px;}
+    .scanbtn{width:42px;font-size:18px;border-radius:8px;}
     .toast{bottom:150px;}
   }
   /* Extra-short screens: shrink further */
@@ -122,6 +147,15 @@
   </div>
 </div>
 
+<div class="scanov" id="scanov">
+  <div class="scanov-top">
+    <span class="t" id="scanTitle">Scan</span>
+    <button class="scanov-close" id="scanClose" aria-label="Close">&times;</button>
+  </div>
+  <div id="reader"></div>
+  <div class="scanov-hint">Point the camera at the barcode</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -148,11 +182,14 @@ function render(){
         '<button class="del" data-del="'+r.id+'" aria-label="Delete row">&times;</button></div>'+
       '<div class="fields">'+
         '<div class="field"><label>Location From</label>'+
-          '<input data-id="'+r.id+'" data-k="from" value="'+esc(r.from)+'" autocomplete="off" autocapitalize="characters" placeholder="FG00"></div>'+
+          '<div class="inrow"><input data-id="'+r.id+'" data-k="from" value="'+esc(r.from)+'" autocomplete="off" autocapitalize="characters" placeholder="FG00">'+
+          '<button class="scanbtn" data-scan="'+r.id+'" data-field="from" aria-label="Scan">&#128247;</button></div></div>'+
         '<div class="field"><label>Location To</label>'+
-          '<input data-id="'+r.id+'" data-k="to" value="'+esc(r.to)+'" autocomplete="off" autocapitalize="characters" placeholder="SWGB05"></div>'+
+          '<div class="inrow"><input data-id="'+r.id+'" data-k="to" value="'+esc(r.to)+'" autocomplete="off" autocapitalize="characters" placeholder="SWGB05">'+
+          '<button class="scanbtn" data-scan="'+r.id+'" data-field="to" aria-label="Scan">&#128247;</button></div></div>'+
         '<div class="field full"><label>Item Number</label>'+
-          '<input data-id="'+r.id+'" data-k="item" value="'+esc(r.item)+'" autocomplete="off" autocapitalize="characters" placeholder="505214714"></div>'+
+          '<div class="inrow"><input data-id="'+r.id+'" data-k="item" value="'+esc(r.item)+'" autocomplete="off" autocapitalize="characters" placeholder="505214714">'+
+          '<button class="scanbtn" data-scan="'+r.id+'" data-field="item" aria-label="Scan">&#128247;</button></div></div>'+
         '<div class="field qty full"><label>Quantity</label>'+
           '<input data-id="'+r.id+'" data-k="qty" value="'+esc(r.qty)+'" inputmode="numeric" pattern="[0-9]*" placeholder="0"></div>'+
       '</div>';
@@ -166,9 +203,49 @@ document.getElementById('rows').addEventListener('input',function(e){
   if(!id||!k)return;const r=rows.find(function(x){return x.id===id;});if(r){r[k]=e.target.value;save();}
 });
 document.getElementById('rows').addEventListener('click',function(e){
-  const del=e.target.getAttribute('data-del');if(!del)return;
-  rows=rows.filter(function(x){return x.id!==del;});if(!rows.length)rows=[blank()];save();render();
+  const del=e.target.getAttribute('data-del');
+  if(del){rows=rows.filter(function(x){return x.id!==del;});if(!rows.length)rows=[blank()];save();render();return;}
+  const scanId=e.target.getAttribute('data-scan');
+  if(scanId){openScan(scanId,e.target.getAttribute('data-field'));}
 });
+
+/* ---------- Camera scanning (phone) ---------- */
+var LABELS={from:"Location From",to:"Location To",item:"Item Number"};
+var html5qr=null, scanTarget=null, scanBusy=false;
+function openScan(id,field){
+  if(typeof Html5Qrcode==='undefined'){toast("Scanner still loading…");return;}
+  scanTarget={id:id,field:field};scanBusy=false;
+  document.getElementById('scanTitle').textContent="Scan "+(LABELS[field]||"");
+  document.querySelector('.scanov-hint').textContent="Point the camera at the barcode";
+  document.getElementById('scanov').classList.add('open');
+  html5qr=new Html5Qrcode("reader",{verbose:false});
+  html5qr.start({facingMode:"environment"},
+    {fps:12,qrbox:{width:270,height:170}},
+    onScanSuccess,
+    function(){}
+  ).catch(function(err){
+    document.querySelector('.scanov-hint').textContent="Camera unavailable — check permissions";
+  });
+}
+function onScanSuccess(text){
+  if(scanBusy)return;scanBusy=true;
+  var t=scanTarget;
+  var r=rows.find(function(x){return x.id===t.id;});
+  if(r){r[t.field]=String(text).trim();save();render();}
+  if(navigator.vibrate)navigator.vibrate(60);
+  closeScan();
+  var idx=FIELD_ORDER.indexOf(t.field);
+  if(idx>=0&&idx<FIELD_ORDER.length-1){focusField(t.id,FIELD_ORDER[idx+1]);}
+  toast((LABELS[t.field]||"Value")+" scanned");
+}
+function closeScan(){
+  document.getElementById('scanov').classList.remove('open');
+  if(html5qr){
+    html5qr.stop().then(function(){try{html5qr.clear();}catch(e){}html5qr=null;})
+      .catch(function(){html5qr=null;});
+  }
+}
+document.getElementById('scanClose').addEventListener('click',closeScan);
 document.getElementById('addBtn').addEventListener('click',function(){
   rows.push(blank());save();render();window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
 });
