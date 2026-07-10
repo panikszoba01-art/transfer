@@ -146,6 +146,33 @@ document.getElementById('clearBtn').addEventListener('click',function(){
 document.getElementById('meta-date').addEventListener('change',saveMeta);
 document.getElementById('meta-by').addEventListener('input',saveMeta);
 
+/* ---------- Scanner / Enter: auto-advance to next field ---------- */
+var FIELD_ORDER=['from','to','item','qty'];
+function focusField(id,k){
+  var el=document.querySelector('input[data-id="'+id+'"][data-k="'+k+'"]');
+  if(el){el.focus();try{el.select();}catch(e){}
+    el.scrollIntoView({block:'center',behavior:'smooth'});}
+  return el;
+}
+document.getElementById('rows').addEventListener('keydown',function(e){
+  if(e.key!=='Enter'&&e.keyCode!==13&&e.key!=='Tab')return;
+  var input=e.target;
+  var k=input.getAttribute('data-k');
+  var id=input.getAttribute('data-id');
+  if(!k||!id)return;
+  e.preventDefault();
+  var idx=FIELD_ORDER.indexOf(k);
+  if(idx<0)return;
+  if(idx<FIELD_ORDER.length-1){
+    focusField(id,FIELD_ORDER[idx+1]);
+  }else{
+    // last field (qty) -> new row, focus its first field
+    rows.push(blank());save();render();
+    var nid=rows[rows.length-1].id;
+    focusField(nid,'from');
+  }
+});
+
 function filled(){return rows.filter(function(r){return r.from||r.to||r.item||r.qty;});}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},1800);}
@@ -218,6 +245,8 @@ window.addEventListener('DOMContentLoaded',function(){
   load();
   if(!document.getElementById('meta-date').value)document.getElementById('meta-date').value=new Date().toISOString().slice(0,10);
   render();
+  var first=document.querySelector('input[data-k="from"]');
+  if(first)first.focus();
 });
 </script>
 </body>
